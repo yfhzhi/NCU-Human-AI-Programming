@@ -80,8 +80,56 @@
     box-shadow: 0 0 10px rgba(90, 209, 255, 0.65);
   }
 
-  .actions { display: flex; gap: 10px; margin-top: 22px; }
-  .btn {
+  .section-label {
+    margin: 0 0 9px;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+  .scenes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .cap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 9px 3px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .cap i {
+    font-style: normal;
+    font-size: 10px;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+  .cap:hover { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+  .cap.active {
+    border-color: rgba(90, 209, 255, 0.55);
+    background: rgba(90, 209, 255, 0.14);
+    color: var(--accent);
+  }
+  .cap.active i { opacity: 0.9; }
+
+  .hint {
+    margin: -6px 0 14px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #f0c674;
+    min-height: 16px;
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 22px; }  .btn {
     flex: 1;
     padding: 10px 12px;
     border-radius: 10px;
@@ -137,18 +185,30 @@
   <h1>单摆物理模拟器</h1>
   <p class="sub">Week05 · 意图造物与 ReAct 闭环编程</p>
 
+  <p class="section-label">天体场景</p>
+  <div class="scenes" id="scenes">
+    <button class="cap" data-preset="earth" type="button">地球<i>9.8</i></button>
+    <button class="cap" data-preset="moon" type="button">月球<i>1.6</i></button>
+    <button class="cap" data-preset="jupiter" type="button">木星<i>24.8</i></button>
+    <button class="cap" data-preset="space" type="button">太空<i>0</i></button>
+  </div>
+
+  <p class="section-label">参数调节</p>
+
   <div class="ctrl">
     <label for="lenRange">摆长 L <b id="lenVal">200 px</b></label>
     <input type="range" id="lenRange" min="100" max="350" step="1" value="200" />
   </div>
   <div class="ctrl">
     <label for="gravRange">重力 g <b id="gravVal">9.80 m/s²</b></label>
-    <input type="range" id="gravRange" min="1" max="25" step="0.1" value="9.8" />
+    <input type="range" id="gravRange" min="0" max="25" step="0.1" value="9.8" />
   </div>
   <div class="ctrl">
     <label for="dampRange">阻尼系数 c <b id="dampVal">0.000</b></label>
     <input type="range" id="dampRange" min="0" max="0.01" step="0.0005" value="0" />
   </div>
+
+  <p class="hint" id="hint"></p>
 
   <div class="actions">
     <button id="resetBtn" class="btn primary" type="button">重置摆动</button>
@@ -171,6 +231,17 @@
   var DAMPING_K = 120;
   var INIT_ANGLE = Math.PI / 4;
 
+  // 天体预设：g 的单位是 m/s²
+  var G_PRESETS = [
+    { key: 'earth', name: '地球', g: 9.8 },
+    { key: 'moon', name: '月球', g: 1.6 },
+    { key: 'jupiter', name: '木星', g: 24.8 },
+    { key: 'space', name: '太空', g: 0 }
+  ];
+
+  // 本地持久化键名，结构变更时同步升版本号，避免读到旧格式脏数据
+  var STORE_KEY = 'week05.pendulum.params.v1';
+
   var canvas = document.getElementById('scene');
   var ctx = canvas.getContext('2d');
 
@@ -180,11 +251,15 @@
     c: 0,
     theta: INIT_ANGLE,
     omega: 0,
-    paused: false
+    paused: false,
+    preset: 'earth',
+    targetG: 9.8
   };
 
   var W = 0;
   var H = 0;
+  var trail = [];
+  var viewScale = 1;
 
   var el = {
     len: document.getElementById('lenRange'),
@@ -195,7 +270,9 @@
     dampVal: document.getElementById('dampVal'),
     period: document.getElementById('periodOut'),
     fps: document.getElementById('fpsOut'),
-    pause: document.getElementById('pauseBtn')
+    pause: document.getElementById('pauseBtn'),
+    scenes: document.getElementById('scenes'),
+    hint: document.getElementById('hint')
   };
 
   function resize() {
@@ -205,11 +282,34 @@
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    computeViewScale();
+    trail.length = 0;
+    updateReadouts();
+  }
+
+  // 窄屏时底部面板会占掉下半屏，按可用高度整体缩放摆长，
+  // 视觉尺寸与物理摆长同步缩放，周期读数才不会和画面打架
+  function computeViewScale() {
+    if (W > 760) {
+      viewScale = 1;
+      return;
+    }
+    var avail = H * 0.34;
+    viewScale = Math.max(0.4, Math.min(1, avail / 350));
+  }
+
+  function pivot() {
+    var offset = W > 760 ? 90 : 0;
+    return { x: W / 2 - offset, y: H * (W > 760 ? 0.16 : 0.1) };
+  }
+
+  function drawnL() {
+    return state.L * viewScale;
   }
 
   // 角加速度：θ″ = −(g/L)·sinθ − c·θ′
   function accel(theta, omega) {
-    return -(state.g * PX_PER_M / state.L) * Math.sin(theta) - DAMPING_K * state.c * omega;
+    return -(state.g * PX_PER_M / drawnL()) * Math.sin(theta) - DAMPING_K * state.c * omega;
   }
 
   // 四阶龙格-库塔积分：长时间摆动也不会"飘"出能量
@@ -225,10 +325,10 @@
   }
 
   function draw() {
-    var offset = W > 760 ? 90 : 0;
-    var px = W / 2 - offset;
-    var py = H * 0.16;
-    var r = state.L;
+    var p = pivot();
+    var px = p.x;
+    var py = p.y;
+    var r = drawnL();
     var bx = px + Math.sin(state.theta) * r;
     var by = py + Math.cos(state.theta) * r;
 
@@ -247,6 +347,15 @@
     ctx.arc(px, py, 72, Math.PI / 2, Math.PI / 2 - state.theta, state.theta > 0);
     ctx.stroke();
     ctx.restore();
+
+    // 运动拖尾：越新的采样点越大越亮
+    for (var i = 0; i < trail.length; i++) {
+      var a = (i + 1) / trail.length;
+      ctx.fillStyle = 'rgba(90, 209, 255, ' + (a * 0.22).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(trail[i].x, trail[i].y, 2 + a * 9, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // 摆线
     var rod = ctx.createLinearGradient(px, py, bx, by);
@@ -290,30 +399,137 @@
     el.gravVal.textContent = state.g.toFixed(2) + ' m/s²';
     el.dampVal.textContent = state.c.toFixed(3);
 
-    // 小角近似周期 T = 2π√(L/g)，仅作量级参考
-    var period = 2 * Math.PI * Math.sqrt((state.L / PX_PER_M) / Math.max(state.g, 0.01));
-    el.period.textContent = 'T ≈ ' + period.toFixed(2) + ' s';
+    // 小角近似周期 T = 2π√(L/g)，仅作量级参考；g 趋近 0 时周期趋于无穷
+    if (state.g < 0.2) {
+      el.period.textContent = 'T → ∞';
+    } else {
+      var period = 2 * Math.PI * Math.sqrt((drawnL() / PX_PER_M) / state.g);
+      el.period.textContent = 'T ≈ ' + period.toFixed(2) + ' s';
+    }
+
+    // 失重场景没有回复力，补一句解释，避免被误判成"程序卡死了"
+    el.hint.textContent = state.g < 0.2 ? '失重：没有回复力，摆球保持当前运动状态。' : '';
+  }
+
+  function clamp(v, lo, hi) {
+    return Math.min(hi, Math.max(lo, v));
+  }
+
+  function isNum(v) {
+    return typeof v === 'number' && isFinite(v);
+  }
+
+  function matchPreset(g) {
+    for (var i = 0; i < G_PRESETS.length; i++) {
+      if (Math.abs(G_PRESETS[i].g - g) < 0.05) return G_PRESETS[i].key;
+    }
+    return 'custom';
+  }
+
+  function syncPresetUI() {
+    var caps = el.scenes.querySelectorAll('.cap');
+    for (var i = 0; i < caps.length; i++) {
+      var on = caps[i].getAttribute('data-preset') === state.preset;
+      caps[i].classList.toggle('active', on);
+    }
+  }
+
+  function setPreset(key) {
+    for (var i = 0; i < G_PRESETS.length; i++) {
+      if (G_PRESETS[i].key !== key) continue;
+      state.preset = key;
+      state.targetG = G_PRESETS[i].g; // 只设目标值，由动画循环平滑逼近
+      syncPresetUI();
+      saveParams();
+      return;
+    }
+  }
+
+  function saveParams() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        L: state.L,
+        g: state.g,
+        c: state.c,
+        preset: state.preset
+      }));
+    } catch (err) {
+      // 无痕模式或存储被禁用时静默降级，不影响主流程
+    }
+  }
+
+  function loadParams() {
+    var raw = null;
+    try {
+      raw = localStorage.getItem(STORE_KEY);
+    } catch (err) {
+      return;
+    }
+    if (!raw) return;
+
+    var saved = null;
+    try {
+      saved = JSON.parse(raw);
+    } catch (err) {
+      return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+
+    // 逐项做类型与范围校验，防止旧缓存或手改数据把状态带崩
+    if (isNum(saved.L)) state.L = clamp(saved.L, 100, 350);
+    if (isNum(saved.g)) state.g = clamp(saved.g, 0, 25);
+    if (isNum(saved.c)) state.c = clamp(saved.c, 0, 0.01);
+    state.targetG = state.g;
+    state.preset = typeof saved.preset === 'string' ? saved.preset : matchPreset(state.g);
+
+    el.len.value = state.L;
+    el.grav.value = state.g;
+    el.damp.value = state.c;
+  }
+
+  function pushTrail() {
+    var p = pivot();
+    var r = drawnL();
+    trail.push({
+      x: p.x + Math.sin(state.theta) * r,
+      y: p.y + Math.cos(state.theta) * r
+    });
+    if (trail.length > 28) trail.shift();
   }
 
   function resetPendulum() {
     state.theta = INIT_ANGLE;
     state.omega = 0;
+    trail.length = 0;
     draw();
   }
 
   el.len.addEventListener('input', function () {
     state.L = parseFloat(this.value);
+    trail.length = 0;
     updateReadouts();
+    saveParams();
   });
 
   el.grav.addEventListener('input', function () {
     state.g = parseFloat(this.value);
+    state.targetG = state.g; // 手动拖动立即接管，打断预设过渡
+    state.preset = matchPreset(state.g);
+    syncPresetUI();
     updateReadouts();
+    saveParams();
   });
 
   el.damp.addEventListener('input', function () {
     state.c = parseFloat(this.value);
     updateReadouts();
+    saveParams();
+  });
+
+  el.scenes.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.cap') : null;
+    if (!btn) return;
+    setPreset(btn.getAttribute('data-preset'));
   });
 
   el.pause.addEventListener('click', function () {
@@ -337,6 +553,17 @@
     last = ts;
     if (dt > 0.1) dt = 0.1;
 
+    // 天体预设切换：重力向目标值缓动，滑块同步跟随，避免参数瞬间跳变
+    if (Math.abs(state.g - state.targetG) > 0.005) {
+      state.g += (state.targetG - state.g) * Math.min(1, dt * 6);
+      el.grav.value = state.g.toFixed(1);
+      updateReadouts();
+    } else if (state.g !== state.targetG) {
+      state.g = state.targetG;
+      el.grav.value = state.g;
+      updateReadouts();
+    }
+
     if (!state.paused) {
       acc += dt;
       var guard = 0;
@@ -346,6 +573,7 @@
         guard++;
       }
       if (guard >= 24) acc = 0;
+      pushTrail();
     }
 
     draw();
@@ -362,7 +590,10 @@
   }
 
   window.addEventListener('resize', resize);
+  window.addEventListener('pagehide', saveParams);
   resize();
+  loadParams();
+  syncPresetUI();
   updateReadouts();
   requestAnimationFrame(frame);
 })();

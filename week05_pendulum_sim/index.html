@@ -299,8 +299,16 @@
   }
 
   function pivot() {
-    var offset = W > 760 ? 90 : 0;
-    return { x: W / 2 - offset, y: H * (W > 760 ? 0.16 : 0.1) };
+    if (W <= 760) {
+      return { x: W / 2, y: H * 0.1 };
+    }
+    // 桌面端：面板固定在右侧，摆球最大半径不能压到面板上
+    var r = drawnL();
+    var x = W / 2 - 90;
+    var minX = r + 30;
+    var maxX = W - 324 - r - 20;
+    if (maxX > minX) x = Math.min(Math.max(x, minX), maxX);
+    return { x: x, y: H * 0.16 };
   }
 
   function drawnL() {

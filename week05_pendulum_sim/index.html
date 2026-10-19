@@ -2,21 +2,174 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>单摆物理模拟器 · Week05</title>
 <style>
-  html, body { height: 100%; margin: 0; background: #1a1a24; overflow: hidden; }
+  :root {
+    --bg: #1a1a24;
+    --panel: rgba(30, 30, 44, 0.74);
+    --border: rgba(150, 180, 255, 0.14);
+    --text: #e9edff;
+    --muted: #8b91ab;
+    --accent: #5ad1ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  body {
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage { position: absolute; inset: 0; }
   canvas { display: block; width: 100%; height: 100%; }
+
+  #panel {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    width: 300px;
+    padding: 22px;
+    border-radius: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  }
+  #panel h1 { margin: 0 0 6px; font-size: 17px; font-weight: 600; letter-spacing: 0.02em; }
+  #panel .sub { margin: 0 0 20px; font-size: 11.5px; color: var(--muted); letter-spacing: 0.04em; }
+
+  .ctrl { margin-bottom: 17px; }
+  .ctrl label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 9px;
+    font-size: 12.5px;
+    color: #c3c9e2;
+  }
+  .ctrl b {
+    font-weight: 500;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.13);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(90, 209, 255, 0.65);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(90, 209, 255, 0.65);
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.16s ease, background 0.16s ease;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-1px); }
+  .btn.primary {
+    border: none;
+    background: linear-gradient(135deg, #2b8fd6, #5ad1ff);
+    color: #07131f;
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: linear-gradient(135deg, #3aa0e8, #74dbff); }
+
+  #panel footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-top: 13px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 760px) {
+    #panel {
+      top: auto;
+      right: 12px;
+      bottom: 12px;
+      left: 12px;
+      width: auto;
+      padding: 16px;
+      border-radius: 14px;
+    }
+    #panel h1 { font-size: 15px; }
+    #panel .sub { display: none; }
+    .ctrl { margin-bottom: 13px; }
+    .actions { margin-top: 16px; }
+  }
 </style>
 </head>
 <body>
-<canvas id="scene"></canvas>
+<div id="stage"><canvas id="scene"></canvas></div>
+
+<aside id="panel">
+  <h1>单摆物理模拟器</h1>
+  <p class="sub">Week05 · 意图造物与 ReAct 闭环编程</p>
+
+  <div class="ctrl">
+    <label for="lenRange">摆长 L <b id="lenVal">200 px</b></label>
+    <input type="range" id="lenRange" min="100" max="350" step="1" value="200" />
+  </div>
+  <div class="ctrl">
+    <label for="gravRange">重力 g <b id="gravVal">9.80 m/s²</b></label>
+    <input type="range" id="gravRange" min="1" max="25" step="0.1" value="9.8" />
+  </div>
+  <div class="ctrl">
+    <label for="dampRange">阻尼系数 c <b id="dampVal">0.000</b></label>
+    <input type="range" id="dampRange" min="0" max="0.01" step="0.0005" value="0" />
+  </div>
+
+  <div class="actions">
+    <button id="resetBtn" class="btn primary" onclick="resetAnimation()">重置摆动</button>
+    <button id="pauseBtn" class="btn">暂停</button>
+  </div>
+
+  <footer>
+    <span id="periodOut">T ≈ 2.84 s</span>
+    <span id="fpsOut">-- fps</span>
+  </footer>
+</aside>
+
 <script>
 (function () {
   'use strict';
 
-  // 1 米 = 100 像素，让 g=9.8 m/s² 在屏幕上摆动周期约 2.8 秒
+  // 1 米 = 100 像素：保证 g=9.8 时 200px 摆长的周期约 2.8 秒，肉眼可读
   var PX_PER_M = 100;
+  // 阻尼滑块量程只有 0~0.010，直接当角速度阻尼几乎看不出衰减，故放大 120 倍做视觉映射
+  var DAMPING_K = 120;
+  var INIT_ANGLE = Math.PI / 4;
 
   var canvas = document.getElementById('scene');
   var ctx = canvas.getContext('2d');
@@ -24,12 +177,26 @@
   var state = {
     L: 200,
     g: 9.8,
-    theta: Math.PI / 4,
-    omega: 0
+    c: 0,
+    theta: INIT_ANGLE,
+    omega: 0,
+    paused: false
   };
 
   var W = 0;
   var H = 0;
+
+  var el = {
+    len: document.getElementById('lenRange'),
+    grav: document.getElementById('gravRange'),
+    damp: document.getElementById('dampRange'),
+    lenVal: document.getElementById('lenVal'),
+    gravVal: document.getElementById('gravVal'),
+    dampVal: document.getElementById('dampVal'),
+    period: document.getElementById('periodOut'),
+    fps: document.getElementById('fpsOut'),
+    pause: document.getElementById('pauseBtn')
+  };
 
   function resize() {
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -40,8 +207,9 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  // 角加速度：θ″ = −(g/L)·sinθ − c·θ′
   function accel(theta, omega) {
-    return -(state.g * PX_PER_M / state.L) * Math.sin(theta);
+    return -(state.g * PX_PER_M / state.L) * Math.sin(theta) - DAMPING_K * state.c * omega;
   }
 
   // 四阶龙格-库塔积分：长时间摆动也不会"飘"出能量
@@ -57,7 +225,8 @@
   }
 
   function draw() {
-    var px = W / 2;
+    var offset = W > 760 ? 90 : 0;
+    var px = W / 2 - offset;
     var py = H * 0.16;
     var r = state.L;
     var bx = px + Math.sin(state.theta) * r;
@@ -116,9 +285,47 @@
     ctx.restore();
   }
 
+  function updateReadouts() {
+    el.lenVal.textContent = Math.round(state.L) + ' px';
+    el.gravVal.textContent = state.g.toFixed(2) + ' m/s²';
+    el.dampVal.textContent = state.c.toFixed(3);
+
+    // 小角近似周期 T = 2π√(L/g)，仅作量级参考
+    var period = 2 * Math.PI * Math.sqrt((state.L / PX_PER_M) / Math.max(state.g, 0.01));
+    el.period.textContent = 'T ≈ ' + period.toFixed(2) + ' s';
+  }
+
+  function resetPendulum() {
+    state.theta = INIT_ANGLE;
+    state.omega = 0;
+    draw();
+  }
+
+  el.len.addEventListener('input', function () {
+    state.L = parseFloat(this.value);
+    updateReadouts();
+  });
+
+  el.grav.addEventListener('input', function () {
+    state.g = parseFloat(this.value);
+    updateReadouts();
+  });
+
+  el.damp.addEventListener('input', function () {
+    state.c = parseFloat(this.value);
+    updateReadouts();
+  });
+
+  el.pause.addEventListener('click', function () {
+    state.paused = !state.paused;
+    el.pause.textContent = state.paused ? '继续' : '暂停';
+  });
+
   var last = 0;
   var acc = 0;
   var FIXED = 1 / 240;
+  var frames = 0;
+  var fpsTimer = 0;
 
   function frame(ts) {
     if (!last) last = ts;
@@ -126,21 +333,33 @@
     last = ts;
     if (dt > 0.1) dt = 0.1;
 
-    acc += dt;
-    var guard = 0;
-    while (acc >= FIXED && guard < 24) {
-      step(FIXED);
-      acc -= FIXED;
-      guard++;
+    if (!state.paused) {
+      acc += dt;
+      var guard = 0;
+      while (acc >= FIXED && guard < 24) {
+        step(FIXED);
+        acc -= FIXED;
+        guard++;
+      }
+      if (guard >= 24) acc = 0;
     }
-    if (guard >= 24) acc = 0;
 
     draw();
+
+    frames++;
+    fpsTimer += dt;
+    if (fpsTimer >= 0.5) {
+      el.fps.textContent = Math.round(frames / fpsTimer) + ' fps';
+      frames = 0;
+      fpsTimer = 0;
+    }
+
     requestAnimationFrame(frame);
   }
 
   window.addEventListener('resize', resize);
   resize();
+  updateReadouts();
   requestAnimationFrame(frame);
 })();
 </script>

@@ -19,6 +19,7 @@ GitHub 仓库：https://github.com/yfhzhi/NCU-Human-AI-Programming
      index.html                  最终成品：单文件单摆物理模拟器（含进阶挑战 B）
      README.md                   实验报告 + 人机协同三反思 + 迭代记录 + GitHub 链接
      进阶挑战说明.md              选做 B 的功能清单、实现要点与 7 步验收流程
+     screenshots/                选做 B 的实现效果截图（5 张，Chrome 155 实测）
      test/smoke_test.js          无头冒烟测试（可选：node test/smoke_test.js）
    .git/                         完整提交历史（12 次提交）
 
@@ -44,8 +45,11 @@ GitHub 仓库：https://github.com/yfhzhi/NCU-Human-AI-Programming
                         功能提交 6 次（MVP → 滑块 → 修 bug → 进阶B → 测试 → 布局）
                         另含工作区初始化 2 次、文档 3 次
    ✅ 进阶挑战（选做）   已实现 B：天体场景预设 + localStorage 持久化 + 响应式布局
-                        以《进阶挑战说明.md》作为"扩展功能说明"提交
-                        （含功能清单、实现要点与 7 步验收流程）
+                        截图与说明都齐备：
+                        · 截图 → week05_pendulum_sim/screenshots/ 共 5 张
+                          （地球 / 月球 / 木星 / 太空失重 / 移动端，Chrome 155 实拍）
+                        · 说明 → week05_pendulum_sim/进阶挑战说明.md
+                          （功能清单、实现要点、7 步验收流程、已知限制）
 
 
 五、验收提示（约 1 分钟）

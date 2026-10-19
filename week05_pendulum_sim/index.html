@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>单摆物理模拟器 · Week05</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #1a1a24; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  // 1 米 = 100 像素，让 g=9.8 m/s² 在屏幕上摆动周期约 2.8 秒
+  var PX_PER_M = 100;
+
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+
+  var state = {
+    L: 200,
+    g: 9.8,
+    theta: Math.PI / 4,
+    omega: 0
+  };
+
+  var W = 0;
+  var H = 0;
+
+  function resize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function accel(theta, omega) {
+    return -(state.g * PX_PER_M / state.L) * Math.sin(theta);
+  }
+
+  // 四阶龙格-库塔积分：长时间摆动也不会"飘"出能量
+  function step(dt) {
+    var t = state.theta;
+    var w = state.omega;
+    var k1t = w, k1w = accel(t, w);
+    var k2t = w + k1w * dt / 2, k2w = accel(t + k1t * dt / 2, w + k1w * dt / 2);
+    var k3t = w + k2w * dt / 2, k3w = accel(t + k2t * dt / 2, w + k2w * dt / 2);
+    var k4t = w + k3w * dt, k4w = accel(t + k3t * dt, w + k3w * dt);
+    state.theta = t + (k1t + 2 * k2t + 2 * k3t + k4t) * dt / 6;
+    state.omega = w + (k1w + 2 * k2w + 2 * k3w + k4w) * dt / 6;
+  }
+
+  function draw() {
+    var px = W / 2;
+    var py = H * 0.16;
+    var r = state.L;
+    var bx = px + Math.sin(state.theta) * r;
+    var by = py + Math.cos(state.theta) * r;
+
+    var bg = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.max(W, H) * 0.78);
+    bg.addColorStop(0, '#242432');
+    bg.addColorStop(1, '#14141b');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // 角度参考弧线
+    ctx.save();
+    ctx.strokeStyle = 'rgba(90, 209, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 7]);
+    ctx.beginPath();
+    ctx.arc(px, py, 72, Math.PI / 2, Math.PI / 2 - state.theta, state.theta > 0);
+    ctx.stroke();
+    ctx.restore();
+
+    // 摆线
+    var rod = ctx.createLinearGradient(px, py, bx, by);
+    rod.addColorStop(0, 'rgba(150, 190, 255, 0.35)');
+    rod.addColorStop(1, 'rgba(150, 225, 255, 0.85)');
+    ctx.strokeStyle = rod;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    // 悬点
+    ctx.fillStyle = '#b9cdf0';
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(185, 205, 240, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(px, py, 12, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 发光摆球
+    ctx.save();
+    ctx.shadowColor = 'rgba(90, 209, 255, 0.85)';
+    ctx.shadowBlur = 28;
+    var ball = ctx.createRadialGradient(bx - 6, by - 6, 2, bx, by, 21);
+    ball.addColorStop(0, '#ffffff');
+    ball.addColorStop(0.42, '#a8e8ff');
+    ball.addColorStop(1, '#2b8fd6');
+    ctx.fillStyle = ball;
+    ctx.beginPath();
+    ctx.arc(bx, by, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  var last = 0;
+  var acc = 0;
+  var FIXED = 1 / 240;
+
+  function frame(ts) {
+    if (!last) last = ts;
+    var dt = (ts - last) / 1000;
+    last = ts;
+    if (dt > 0.1) dt = 0.1;
+
+    acc += dt;
+    var guard = 0;
+    while (acc >= FIXED && guard < 24) {
+      step(FIXED);
+      acc -= FIXED;
+      guard++;
+    }
+    if (guard >= 24) acc = 0;
+
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

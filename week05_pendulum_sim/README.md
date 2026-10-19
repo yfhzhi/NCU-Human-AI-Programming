@@ -14,6 +14,11 @@
 | **专业** | 物理学 |
 | **课程** | 人机协同程序设计 |
 | **周次** | 第 5 周（2 学时 / 80 分钟） |
+| **GitHub 仓库** | https://github.com/yfhzhi/NCU-Human-AI-Programming |
+| **本周目录** | https://github.com/yfhzhi/NCU-Human-AI-Programming/tree/main/week05_pendulum_sim |
+
+> 远端仓库与本包内 `.git/` 为**同一份历史**：每个提交的哈希逐字节一致，
+> 本地 `git log --oneline` 与网页版 Commits 页可逐条对照。
 
 ---
 
@@ -22,7 +27,7 @@
 | 文件 | 说明 |
 | :--- | :--- |
 | `index.html` | 最终成品：单文件单摆物理模拟器（含进阶挑战 B），零外部依赖 |
-| `README.md` | 本文件：实验报告 + 人机协同三反思 + 迭代记录 |
+| `README.md` | 本文件：实验报告 + 人机协同三反思 + 迭代记录 + GitHub 链接 |
 | `进阶挑战说明.md` | 选做部分的功能清单、实现要点与验收步骤 |
 | `test/smoke_test.js` | 无头冒烟测试，用于验证"控制台 0 报错"不是靠肉眼确认 |
 | `.git/` | 完整提交历史（本周 6 次功能提交，见第六节） |

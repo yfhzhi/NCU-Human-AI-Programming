@@ -14,6 +14,19 @@
 | **姓名** | 闫飞虎 |
 | **专业** | 物理学 |
 | **学期** | 2026 秋季学期 |
+| **GitHub** | https://github.com/yfhzhi/NCU-Human-AI-Programming |
+
+---
+
+## 仓库地址
+
+**https://github.com/yfhzhi/NCU-Human-AI-Programming**
+
+第 5 周成果在线浏览：[`week05_pendulum_sim/`](https://github.com/yfhzhi/NCU-Human-AI-Programming/tree/main/week05_pendulum_sim)
+· 直接运行：[`index.html`](https://github.com/yfhzhi/NCU-Human-AI-Programming/blob/main/week05_pendulum_sim/index.html)
+· 提交历史：[Commits](https://github.com/yfhzhi/NCU-Human-AI-Programming/commits/main)
+
+> 远端与本包内 `.git/` 是同一条历史线：提交哈希逐字节一致，可用 `git log --oneline` 与网页版 [Commits](https://github.com/yfhzhi/NCU-Human-AI-Programming/commits/main) 逐条核对。
 
 ---
 
@@ -73,9 +86,19 @@ NCU-Human-AI-Programming/
 
 ---
 
-## Git 本地工作流
+## Git 工作流
 
-本仓库采用**纯本地 Git** 管理，无需联网、无需远程账号。
+远端仓库：`origin` → https://github.com/yfhzhi/NCU-Human-AI-Programming
+
+本地 `main` 与远端 `origin/main` 保持同一提交线（哈希一致）。日常流程：
+
+```bash
+git add -A
+git commit -m "feat: 说明做了什么"
+git push origin main
+```
+
+> 若在无网络的考场环境，`.git/` 目录本身已包含完整历史，`git log` / `git show` 均可离线查看，不受影响。
 
 ### 常用命令
 

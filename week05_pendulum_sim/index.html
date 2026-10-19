@@ -151,7 +151,7 @@
   </div>
 
   <div class="actions">
-    <button id="resetBtn" class="btn primary" onclick="resetAnimation()">重置摆动</button>
+    <button id="resetBtn" class="btn primary" type="button">重置摆动</button>
     <button id="pauseBtn" class="btn">暂停</button>
   </div>
 
@@ -320,6 +320,10 @@
     state.paused = !state.paused;
     el.pause.textContent = state.paused ? '继续' : '暂停';
   });
+
+  // 修复：原先内联 onclick="resetAnimation()" 指向了不存在的函数，
+  // 改为在此显式绑定实际已定义的 resetPendulum，作用域清晰且不再依赖全局命名。
+  document.getElementById('resetBtn').addEventListener('click', resetPendulum);
 
   var last = 0;
   var acc = 0;
